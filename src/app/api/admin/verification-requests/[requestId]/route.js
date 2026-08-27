@@ -1,0 +1,32 @@
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { prisma } from "../../../../../../lib/prisma";
+import { verifyToken } from "../../../../../../lib/jwt";
+
+export async function PATCH(request, { params }) {
+  try {
+    const adminId = verifyToken((await cookies()).get("token")?.value);
+    const admin = adminId && await prisma.user.findUnique({ where: { id: adminId }, select: { role: true } });
+    if (admin?.role !== "ADMIN") return NextResponse.json({ message: "Admin access required." }, { status: 403 });
+
+    const { requestId } = await params;
+    const { action, adminNote = "" } = await request.json();
+    if (!["APPROVE", "REJECT"].includes(action)) return NextResponse.json({ message: "Choose APPROVE or REJECT." }, { status: 400 });
+
+    const result = await prisma.$transaction(async (tx) => {
+      const verification = await tx.verificationRequest.findUnique({ where: { id: requestId }, include: { seller: { select: { userId: true } } } });
+      if (!verification || verification.status !== "PENDING") return null;
+      const approved = action === "APPROVE";
+      const note = String(adminNote).trim().slice(0, 500);
+      await tx.verificationRequest.update({ where: { id: requestId }, data: { status: approved ? "APPROVED" : "REJECTED", adminNote: note, reviewedById: adminId, reviewedAt: new Date() } });
+      await tx.seller.update({ where: { id: verification.sellerId }, data: { verificationStatus: approved ? "VERIFIED" : "REJECTED" } });
+      await tx.notification.create({ data: { userId: verification.seller.userId, title: approved ? "Profile approved" : "Profile rejected", message: approved ? "Your seller profile has been verified and approved." : `Your verification request was rejected.${note ? ` Reason: ${note}` : " Please update your details and apply again."}` } });
+      return { approved };
+    });
+    if (!result) return NextResponse.json({ message: "This request has already been reviewed." }, { status: 409 });
+    return NextResponse.json({ success: true, status: result.approved ? "APPROVED" : "REJECTED" });
+  } catch (error) {
+    console.error("Verification update failed", error);
+    return NextResponse.json({ message: "Could not update request." }, { status: 500 });
+  }
+}

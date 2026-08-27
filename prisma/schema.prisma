@@ -1,0 +1,375 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SELLER
+  BUYER
+  CENTER
+  ADMIN
+}
+
+enum SellerType {
+  FARMER
+  FPO
+  TRADER
+  COOPERATIVE
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum VerificationRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SeasonName {
+  KHARIF
+  RABI
+  ZAID
+}
+
+enum SeasonStatus {
+  UPCOMING
+  ACTIVE
+  CLOSED
+}
+
+enum SeasonRegistrationStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
+enum LandUnit {
+  ACRE
+  HECTARE
+}
+
+enum CropType {
+  WHEAT
+  RICE
+  MAIZE
+  SOYBEAN
+  COTTON
+  PULSES
+  OTHER
+}
+
+enum CenterStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum BookingStatus {
+  BOOKED
+  ARRIVED
+  INSPECTION
+  GRADED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+enum Grade {
+  A
+  B
+  C
+}
+
+enum LotStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id              String  @id @default(cuid())
+  name            String
+  phone           String  @unique
+  email           String? @unique
+  aadhaarNumber   String? @unique
+  password        String
+  role            Role
+  phoneVerified   Boolean @default(false)
+  emailVerified   Boolean @default(false)
+  aadhaarVerified Boolean @default(false)
+
+  // CENTER operators are linked to exactly one center
+  centerId        String?
+  center          Center? @relation("CenterOperators", fields: [centerId], references: [id])
+
+  seller                       Seller?
+  reviewedVerificationRequests VerificationRequest[] @relation("ReviewedBy")
+  notifications                Notification[]
+  inspections                  QualityInspection[]   @relation("Inspector")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Seller / Farmer ──────────────────────────────────────────────────────────
+
+model Seller {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  sellerType SellerType
+
+  village  String
+  district String
+  state    String
+  address  String
+
+  bankAccount String
+  ifscCode    String
+
+  verificationStatus VerificationStatus @default(PENDING)
+
+  user                 User                  @relation(fields: [userId], references: [id])
+  farmer               FarmerProfile?
+  fpo                  FPOProfile?
+  verificationRequests VerificationRequest[]
+}
+
+model FarmerProfile {
+  id       String @id @default(cuid())
+  sellerId String @unique
+
+  landArea     Float
+  landUnit     String
+  khasraNumber String?
+  pmKisanId    String?
+  kccNumber    String?
+
+  seller              Seller               @relation(fields: [sellerId], references: [id])
+  seasonRegistrations SeasonRegistration[]
+  bookings            Booking[]
+  inventoryLots       InventoryLot[]
+}
+
+model FPOProfile {
+  id       String @id @default(cuid())
+  sellerId String @unique
+
+  organizationName String
+  registrationNo   String @unique
+  memberCount      Int
+
+  seller Seller @relation(fields: [sellerId], references: [id])
+}
+
+model VerificationRequest {
+  id           String                    @id @default(cuid())
+  sellerId     String
+  status       VerificationRequestStatus @default(PENDING)
+  note         String?
+  adminNote    String?
+  reviewedById String?
+  createdAt    DateTime                  @default(now())
+  reviewedAt   DateTime?
+
+  seller     Seller @relation(fields: [sellerId], references: [id])
+  reviewedBy User?  @relation("ReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([sellerId, status])
+  @@index([status, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ─── Season ───────────────────────────────────────────────────────────────────
+
+model Season {
+  id            String               @id @default(cuid())
+  name          SeasonName
+  year          String
+  startDate     DateTime
+  endDate       DateTime
+  status        SeasonStatus         @default(UPCOMING)
+  createdAt     DateTime             @default(now())
+  registrations SeasonRegistration[]
+
+  @@unique([name, year])
+  @@index([status, startDate])
+}
+
+model SeasonRegistration {
+  id          String                   @id @default(cuid())
+  farmerId    String
+  seasonId    String
+  status      SeasonRegistrationStatus @default(DRAFT)
+  submittedAt DateTime?
+  verifiedAt  DateTime?
+  remarks     String?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  farmer FarmerProfile    @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  season Season           @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  crops  CropDeclaration[]
+
+  @@unique([farmerId, seasonId])
+  @@index([seasonId, status])
+}
+
+model CropDeclaration {
+  id                  String   @id @default(cuid())
+  registrationId      String
+  cropName            String
+  variety             String?
+  area                Float
+  unit                LandUnit
+  sowingDate          DateTime
+  irrigation          String
+  seedSource          String?
+  expectedHarvestDate DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  registration SeasonRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@index([cropName])
+}
+
+// ─── Center ───────────────────────────────────────────────────────────────────
+
+model Center {
+  id      String @id @default(cuid())
+  code    String @unique
+  name    String
+
+  state    String
+  district String
+  village  String?
+  pinCode  String  @db.Char(6)
+
+  address   String
+  latitude  Float?
+  longitude Float?
+
+  phone String
+  email String?
+
+  totalCapacity Decimal @db.Decimal(10, 2)
+  usedCapacity  Decimal @default(0) @db.Decimal(10, 2)
+
+  status CenterStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  operators  User[]      @relation("CenterOperators")
+  warehouses Warehouse[]
+  bookings   Booking[]
+}
+
+// ─── Warehouse ────────────────────────────────────────────────────────────────
+
+model Warehouse {
+  id       String @id @default(cuid())
+  centerId String
+  center   Center @relation(fields: [centerId], references: [id])
+
+  name String
+
+  totalCapacity Decimal @db.Decimal(10, 2)
+  usedCapacity  Decimal @default(0) @db.Decimal(10, 2)
+
+  inventoryLots InventoryLot[]
+}
+
+// ─── Booking (Farmer → Center) ────────────────────────────────────────────────
+
+model Booking {
+  id String @id @default(cuid())
+
+  farmerId String
+  farmer   FarmerProfile @relation(fields: [farmerId], references: [id])
+
+  centerId String
+  center   Center @relation(fields: [centerId], references: [id])
+
+  crop     CropType
+  quantity Decimal  @db.Decimal(10, 2)
+
+  slotStart DateTime
+  slotEnd   DateTime
+
+  status BookingStatus @default(BOOKED)
+
+  createdAt DateTime @default(now())
+
+  inspection QualityInspection?
+}
+
+// ─── Quality Inspection ───────────────────────────────────────────────────────
+
+model QualityInspection {
+  id String @id @default(cuid())
+
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id])
+
+  moisture      Float
+  brokenGrain   Float
+  foreignMatter Float
+
+  aiScore Float?
+  grade   Grade
+
+  inspectorId String
+  inspector   User   @relation("Inspector", fields: [inspectorId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// ─── Inventory Lot ────────────────────────────────────────────────────────────
+
+model InventoryLot {
+  id        String @id @default(cuid())
+  lotNumber String @unique
+
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  farmerId String
+  farmer   FarmerProfile @relation(fields: [farmerId], references: [id])
+
+  crop  CropType
+  grade Grade
+
+  quantity     Decimal @db.Decimal(10, 2)
+  availableQty Decimal @db.Decimal(10, 2)
+
+  purchasePrice Decimal @db.Decimal(10, 2)
+
+  status LotStatus @default(AVAILABLE)
+
+  createdAt DateTime @default(now())
+}

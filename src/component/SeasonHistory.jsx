@@ -1,0 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+export function SeasonHistory() {
+  const [registrations, setRegistrations] = useState([]);
+  const [open, setOpen] = useState("");
+  useEffect(() => { fetch("/api/season/history", { cache: "no-store" }).then(async (response) => response.ok ? response.json() : null).then((data) => setRegistrations(data?.registrations || [])).catch(() => {}); }, []);
+  if (!registrations.length) return null;
+  return <section className="mt-5 rounded-2xl bg-white p-5 shadow-sm sm:p-7"><h2 className="text-xl font-black">Seasonal crop history</h2><p className="mt-1 text-sm text-gray-600">Your previous crop declarations and their review status.</p><div className="mt-4 space-y-3">{registrations.map((registration) => <article key={registration.id} className="rounded-xl border border-gray-100 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-black">{registration.season.name} {registration.season.year}</p><p className="mt-1 text-sm text-gray-600">{registration.crops.length} crop{registration.crops.length === 1 ? "" : "s"} · {registration.status}</p></div><button type="button" onClick={() => setOpen(open === registration.id ? "" : registration.id)} className="rounded-lg border px-3 py-2 text-sm font-bold">{open === registration.id ? "Hide details" : "View details"}</button></div>{open === registration.id && <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[550px] text-left text-sm"><thead className="border-b text-xs uppercase text-gray-500"><tr><th className="pb-2">Crop</th><th className="pb-2">Area</th><th className="pb-2">Sowing</th><th className="pb-2">Harvest</th><th className="pb-2">Irrigation</th></tr></thead><tbody>{registration.crops.map((crop) => <tr key={crop.id} className="border-b border-gray-100"><td className="py-3 font-semibold">{crop.cropName}{crop.variety ? ` (${crop.variety})` : ""}</td><td>{crop.area} {crop.unit}</td><td>{new Date(crop.sowingDate).toLocaleDateString("en-IN")}</td><td>{new Date(crop.expectedHarvestDate).toLocaleDateString("en-IN")}</td><td>{crop.irrigation}</td></tr>)}</tbody></table>{registration.remarks && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm"><b>Admin remark:</b> {registration.remarks}</p>}</div>}</article>)}</div></section>;
+}
