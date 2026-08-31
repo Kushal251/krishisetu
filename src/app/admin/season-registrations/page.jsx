@@ -5,6 +5,7 @@ import { LoggedInNavbar } from "../../../component/LoggedInNavbar";
 
 export default function AdminSeasonRegistrationsPage() {
   const [seasons, setSeasons] = useState([]), [items, setItems] = useState([]), [filters, setFilters] = useState({ state: "", district: "", village: "", crop: "", seasonId: "ALL", status: "SUBMITTED" }), [applied, setApplied] = useState(filters), [expanded, setExpanded] = useState(""), [error, setError] = useState("");
+
   useEffect(() => { fetch("/api/admin/seasons").then(async (r) => r.ok ? r.json() : null).then((data) => setSeasons(data?.seasons || [])).catch(() => {}); }, []);
   useEffect(() => { const query = new URLSearchParams(applied).toString(); fetch(`/api/admin/season-registrations?${query}`).then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.message); setItems(data.registrations); }).catch((requestError) => setError(requestError.message)); }, [applied]);
   async function review(id, action) { const remarks = action === "REJECT" ? window.prompt("Remark for farmer:") : ""; if (remarks === null) return; const response = await fetch(`/api/admin/season-registrations/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, remarks }) }); const data = await response.json(); if (!response.ok) setError(data.message); else setItems((current) => current.filter((item) => item.id !== id)); }

@@ -4,21 +4,21 @@ import { prisma } from "../../../../../../lib/prisma";
 import { verifyToken } from "../../../../../../lib/jwt";
 
 async function requireAdmin() {
-  const id = verifyToken((await cookies()).get("token")?.value);
-  if (!id) return null;
-  return prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+  const session = verifyToken((await cookies()).get("token")?.value);
+  if (!session?.id) return null;
+  return prisma.user.findUnique({ where: { id: session.id }, select: { id: true, role: true } });
 }
 
 // GET /api/center/centers/[id] — center detail
 export async function GET(request, { params }) {
   try {
-    const id = verifyToken((await cookies()).get("token")?.value);
-    if (!id) return NextResponse.json({ message: "Please log in." }, { status: 401 });
+    const session = verifyToken((await cookies()).get("token")?.value);
+    if (!session?.id) return NextResponse.json({ message: "Please log in." }, { status: 401 });
     const { id: centerId } = await params;
     const center = await prisma.center.findUnique({
       where: { id: centerId },
       include: {
-        warehouses: { orderBy: { name: "asc" } },
+        cropPrices: { where: { crop: "SOYBEAN" }, select: { crop: true, price: true, unit: true, updatedAt: true } },
         operators: { select: { id: true, name: true, phone: true, email: true, role: true } },
         _count: { select: { bookings: true } },
       },

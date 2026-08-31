@@ -5,11 +5,11 @@ import { verifyToken } from "../../../../../lib/jwt";
 
 export async function POST(request) {
   try {
-    const userId = verifyToken((await cookies()).get("token")?.value);
-    if (!userId) return NextResponse.json({ message: "Please log in." }, { status: 401 });
+    const session = verifyToken((await cookies()).get("token")?.value);
+    if (!session?.id) return NextResponse.json({ message: "Please log in." }, { status: 401 });
 
     const { note = "" } = await request.json();
-    const seller = await prisma.seller.findUnique({ where: { userId }, select: { id: true, verificationStatus: true } });
+    const seller = await prisma.seller.findUnique({ where: { userId: session.id }, select: { id: true, verificationStatus: true } });
     if (!seller) return NextResponse.json({ message: "Only sellers can request verification." }, { status: 403 });
     if (seller.verificationStatus === "VERIFIED") return NextResponse.json({ message: "Your profile is already verified." }, { status: 400 });
 

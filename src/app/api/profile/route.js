@@ -16,11 +16,11 @@ export async function GET(req) {
     }
        
        
-        const userId = readSessionToken(token);
-        if (!userId) return NextResponse.json({ message: "Please log in." }, { status: 401 });
+        const userdetail = readSessionToken(token);
+        if (!userdetail) return NextResponse.json({ message: "Please log in." }, { status: 401 });
 
         const user = await prisma.user.findUnique({
-            where: { id: userId },
+            where: { id: userdetail.id },
             select: {
                 id: true, name: true, phone: true, email: true, aadhaarNumber: true, role: true,
                 phoneVerified: true, emailVerified: true, aadhaarVerified: true, createdAt: true,

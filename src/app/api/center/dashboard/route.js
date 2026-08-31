@@ -6,11 +6,11 @@ import { verifyToken } from "../../../../../lib/jwt";
 // GET /api/center/dashboard — KPIs for the center operator
 export async function GET() {
   try {
-    const userId = verifyToken((await cookies()).get("token")?.value);
-    if (!userId) return NextResponse.json({ message: "Please log in." }, { status: 401 });
+    const session = verifyToken((await cookies()).get("token")?.value);
+    if (!session?.id) return NextResponse.json({ message: "Please log in." }, { status: 401 });
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: session.id },
       select: { role: true, centerId: true },
     });
 
@@ -27,7 +27,7 @@ export async function GET() {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const [center, todayBookings, pendingInspection, warehouses] = await Promise.all([
+    const [center, todayBookings, pendingInspection] = await Promise.all([
       // Center capacity info
       prisma.center.findUnique({
         where: { id: centerId },
@@ -48,12 +48,6 @@ export async function GET() {
         where: { centerId, status: "ARRIVED" },
       }),
 
-      // Warehouse list with capacity
-      prisma.warehouse.findMany({
-        where: { centerId },
-        select: { id: true, name: true, totalCapacity: true, usedCapacity: true },
-        orderBy: { name: "asc" },
-      }),
     ]);
 
     const totalCapacity = parseFloat(center.totalCapacity);
@@ -77,7 +71,6 @@ export async function GET() {
         utilizationPct,
         availableCapacity: totalCapacity - usedCapacity,
       },
-      warehouses,
     });
   } catch (error) {
     console.error("Center dashboard failed", error);

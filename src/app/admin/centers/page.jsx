@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LoggedInNavbar } from "../../../component/LoggedInNavbar";
-import { Building2, MapPin, Phone, Layers, ArrowRight, Plus, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { Building2, MapPin, Phone, ArrowRight, Plus, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const INITIAL_FORM = {
   code: "", name: "", state: "", district: "", village: "",
@@ -31,6 +32,28 @@ export default function AdminCentersPage() {
   const [saving, setSaving]     = useState(false);
   const [search, setSearch]     = useState({ state: "", district: "", status: "ALL" });
   const [applied, setApplied]   = useState({ state: "", district: "", status: "ALL" });
+  // if your not admin use this to redirect to home page
+//  find role from cookies
+  const [isAdmin, setIsAdmin] = useState(false);
+   const router = useRouter();
+   useEffect(() => {
+    async function checkAdmin() {
+      const response = await fetch("/api/me");
+      const data = await response.json();
+      console.log("data", data);
+      if (response.ok && data.user && data.user.role === "ADMIN") {
+        setIsAdmin(true);
+      }else {
+        setIsAdmin(false);
+         router.push("/");
+      }
+    }
+    checkAdmin();
+  }
+, []);
+
+  console.log("isAdmin", isAdmin);
+ 
 
   async function loadCenters() {
     const params = new URLSearchParams();
@@ -249,11 +272,6 @@ export default function AdminCentersPage() {
                       <Phone size={13} /> {center.phone}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Layers size={12} />
-                        {center._count.warehouses} warehouse{center._count.warehouses !== 1 ? "s" : ""}
-                      </span>
-                      <span>·</span>
                       <span>{center._count.operators} operator{center._count.operators !== 1 ? "s" : ""}</span>
                       <span>·</span>
                       <span>{center._count.bookings} booking{center._count.bookings !== 1 ? "s" : ""}</span>

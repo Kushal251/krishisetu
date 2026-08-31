@@ -4,16 +4,16 @@ import { prisma } from "../../../../../lib/prisma";
 import { verifyToken } from "../../../../../lib/jwt";
 
 async function requireAdmin() {
-  const id = verifyToken((await cookies()).get("token")?.value);
-  if (!id) return null;
-  return prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+  const session = verifyToken((await cookies()).get("token")?.value);
+  if (!session?.id) return null;
+  return prisma.user.findUnique({ where: { id: session.id }, select: { id: true, role: true } });
 }
 
 // GET /api/center/centers — list all centers (any authenticated user)
 export async function GET(request) {
   try {
-    const id = verifyToken((await cookies()).get("token")?.value);
-    if (!id) return NextResponse.json({ message: "Please log in." }, { status: 401 });
+    const session = verifyToken((await cookies()).get("token")?.value);
+    if (!session?.id) return NextResponse.json({ message: "Please log in." }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
     const state    = searchParams.get("state")?.trim();
@@ -28,7 +28,8 @@ export async function GET(request) {
       },
       orderBy: { createdAt: "desc" },
       include: {
-        _count: { select: { warehouses: true, bookings: true, operators: true } },
+        cropPrices: { where: { crop: "SOYBEAN" }, select: { crop: true, price: true, unit: true, updatedAt: true } },
+        _count: { select: { bookings: true, operators: true } },
       },
     });
 

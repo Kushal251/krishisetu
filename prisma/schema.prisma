@@ -88,12 +88,6 @@ enum Grade {
   C
 }
 
-enum LotStatus {
-  AVAILABLE
-  RESERVED
-  SOLD
-}
-
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 model User {
@@ -109,8 +103,8 @@ model User {
   aadhaarVerified Boolean @default(false)
 
   // CENTER operators are linked to exactly one center
-  centerId        String?
-  center          Center? @relation("CenterOperators", fields: [centerId], references: [id])
+  centerId String?
+  center   Center? @relation("CenterOperators", fields: [centerId], references: [id])
 
   seller                       Seller?
   reviewedVerificationRequests VerificationRequest[] @relation("ReviewedBy")
@@ -142,6 +136,7 @@ model Seller {
   user                 User                  @relation(fields: [userId], references: [id])
   farmer               FarmerProfile?
   fpo                  FPOProfile?
+  bookings             Booking[]
   verificationRequests VerificationRequest[]
 }
 
@@ -157,8 +152,6 @@ model FarmerProfile {
 
   seller              Seller               @relation(fields: [sellerId], references: [id])
   seasonRegistrations SeasonRegistration[]
-  bookings            Booking[]
-  inventoryLots       InventoryLot[]
 }
 
 model FPOProfile {
@@ -229,8 +222,8 @@ model SeasonRegistration {
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
 
-  farmer FarmerProfile    @relation(fields: [farmerId], references: [id], onDelete: Cascade)
-  season Season           @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  farmer FarmerProfile     @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  season Season            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   crops  CropDeclaration[]
 
   @@unique([farmerId, seasonId])
@@ -260,9 +253,9 @@ model CropDeclaration {
 // ─── Center ───────────────────────────────────────────────────────────────────
 
 model Center {
-  id      String @id @default(cuid())
-  code    String @unique
-  name    String
+  id   String @id @default(cuid())
+  code String @unique
+  name String
 
   state    String
   district String
@@ -285,23 +278,21 @@ model Center {
   updatedAt DateTime @updatedAt
 
   operators  User[]      @relation("CenterOperators")
-  warehouses Warehouse[]
+  cropPrices CropPrice[]
   bookings   Booking[]
 }
 
-// ─── Warehouse ────────────────────────────────────────────────────────────────
+model CropPrice {
+  id        String   @id @default(cuid())
+  centerId  String
+  center    Center   @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  crop      CropType @default(SOYBEAN)
+  price     Decimal  @db.Decimal(10, 2)
+  unit      String   @default("quintal")
+  updatedAt DateTime @updatedAt
 
-model Warehouse {
-  id       String @id @default(cuid())
-  centerId String
-  center   Center @relation(fields: [centerId], references: [id])
-
-  name String
-
-  totalCapacity Decimal @db.Decimal(10, 2)
-  usedCapacity  Decimal @default(0) @db.Decimal(10, 2)
-
-  inventoryLots InventoryLot[]
+  @@unique([centerId, crop])
+  @@index([crop, updatedAt])
 }
 
 // ─── Booking (Farmer → Center) ────────────────────────────────────────────────
@@ -309,8 +300,8 @@ model Warehouse {
 model Booking {
   id String @id @default(cuid())
 
-  farmerId String
-  farmer   FarmerProfile @relation(fields: [farmerId], references: [id])
+  sellerId String
+  seller   Seller @relation(fields: [sellerId], references: [id])
 
   centerId String
   center   Center @relation(fields: [centerId], references: [id])
@@ -326,6 +317,9 @@ model Booking {
   createdAt DateTime @default(now())
 
   inspection QualityInspection?
+
+  @@index([centerId, slotStart, slotEnd])
+  @@index([sellerId, createdAt])
 }
 
 // ─── Quality Inspection ───────────────────────────────────────────────────────
@@ -345,31 +339,6 @@ model QualityInspection {
 
   inspectorId String
   inspector   User   @relation("Inspector", fields: [inspectorId], references: [id])
-
-  createdAt DateTime @default(now())
-}
-
-// ─── Inventory Lot ────────────────────────────────────────────────────────────
-
-model InventoryLot {
-  id        String @id @default(cuid())
-  lotNumber String @unique
-
-  warehouseId String
-  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
-
-  farmerId String
-  farmer   FarmerProfile @relation(fields: [farmerId], references: [id])
-
-  crop  CropType
-  grade Grade
-
-  quantity     Decimal @db.Decimal(10, 2)
-  availableQty Decimal @db.Decimal(10, 2)
-
-  purchasePrice Decimal @db.Decimal(10, 2)
-
-  status LotStatus @default(AVAILABLE)
 
   createdAt DateTime @default(now())
 }

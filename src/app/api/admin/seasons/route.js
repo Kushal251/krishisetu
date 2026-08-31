@@ -4,9 +4,9 @@ import { prisma } from "../../../../../lib/prisma";
 import { verifyToken } from "../../../../../lib/jwt";
 
 async function requireAdmin() {
-  const id = verifyToken((await cookies()).get("token")?.value);
-  if (!id) return null;
-  return prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
+  const session = verifyToken((await cookies()).get("token")?.value);
+  if (!session?.id) return null;
+  return prisma.user.findUnique({ where: { id: session.id }, select: { id: true, role: true } });
 }
 
 export async function GET() {

@@ -5,8 +5,8 @@ import { verifyToken } from "../../../../../../lib/jwt";
 
 export async function PATCH(request, { params }) {
   try {
-    const adminId = verifyToken((await cookies()).get("token")?.value);
-    const admin = adminId && await prisma.user.findUnique({ where: { id: adminId }, select: { role: true } });
+    const session = verifyToken((await cookies()).get("token")?.value);
+    const admin = session?.id && await prisma.user.findUnique({ where: { id: session.id }, select: { role: true } });
     if (admin?.role !== "ADMIN") return NextResponse.json({ message: "Admin access required." }, { status: 403 });
 
     const { requestId } = await params;
@@ -18,7 +18,7 @@ export async function PATCH(request, { params }) {
       if (!verification || verification.status !== "PENDING") return null;
       const approved = action === "APPROVE";
       const note = String(adminNote).trim().slice(0, 500);
-      await tx.verificationRequest.update({ where: { id: requestId }, data: { status: approved ? "APPROVED" : "REJECTED", adminNote: note, reviewedById: adminId, reviewedAt: new Date() } });
+      await tx.verificationRequest.update({ where: { id: requestId }, data: { status: approved ? "APPROVED" : "REJECTED", adminNote: note, reviewedById: session.id, reviewedAt: new Date() } });
       await tx.seller.update({ where: { id: verification.sellerId }, data: { verificationStatus: approved ? "VERIFIED" : "REJECTED" } });
       await tx.notification.create({ data: { userId: verification.seller.userId, title: approved ? "Profile approved" : "Profile rejected", message: approved ? "Your seller profile has been verified and approved." : `Your verification request was rejected.${note ? ` Reason: ${note}` : " Please update your details and apply again."}` } });
       return { approved };

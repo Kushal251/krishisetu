@@ -5,8 +5,8 @@ import { verifyToken } from "../../../../../lib/jwt";
 
 export async function GET(request) {
   try {
-    const adminId = verifyToken((await cookies()).get("token")?.value);
-    const admin = adminId && await prisma.user.findUnique({ where: { id: adminId }, select: { role: true } });
+    const session = verifyToken((await cookies()).get("token")?.value);
+    const admin = session?.id && await prisma.user.findUnique({ where: { id: session.id }, select: { role: true } });
     if (admin?.role !== "ADMIN") return NextResponse.json({ message: "Admin access required." }, { status: 403 });
     const { searchParams } = new URL(request.url);
     const state = searchParams.get("state")?.trim(), district = searchParams.get("district")?.trim(), village = searchParams.get("village")?.trim(), status = searchParams.get("status"), seasonId = searchParams.get("seasonId"), crop = searchParams.get("crop")?.trim();
