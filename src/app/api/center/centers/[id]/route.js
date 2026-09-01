@@ -14,17 +14,27 @@ export async function GET(request, { params }) {
   try {
     const session = verifyToken((await cookies()).get("token")?.value);
     if (!session?.id) return NextResponse.json({ message: "Please log in." }, { status: 401 });
+    const viewer = await prisma.user.findUnique({ where: { id: session.id }, select: { role: true } });
     const { id: centerId } = await params;
     const center = await prisma.center.findUnique({
       where: { id: centerId },
       include: {
         cropPrices: { where: { crop: "SOYBEAN" }, select: { crop: true, price: true, unit: true, updatedAt: true } },
-        operators: { select: { id: true, name: true, phone: true, email: true, role: true } },
-        _count: { select: { bookings: true } },
+        ...(viewer?.role === "ADMIN" ? {
+          listings: { where: { isActive: true, availableQty: { gt: 0 } }, select: { id: true, grade: true, availableQty: true, reservedQty: true, pricePerQuintal: true, storageCharge: true, handlingCharge: true, gstRate: true, availableUntil: true, pickupStart: true, pickupEnd: true }, orderBy: { availableUntil: "asc" } },
+          bookings: { where: { status: "GRADED", inspection: { is: { sellerDecision: "ACCEPTED" } } }, select: { id: true, quantity: true, seller: { select: { user: { select: { name: true, phone: true } } } }, inspection: { select: { grade: true, gradePrice: true } } }, orderBy: { createdAt: "asc" } },
+          operators: { select: { id: true, name: true, phone: true, email: true, role: true } },
+          _count: { select: { bookings: true } },
+        } : {}),
       },
     });
 
     if (!center) return NextResponse.json({ message: "Center not found." }, { status: 404 });
+    if (viewer?.role === "ADMIN") {
+      const costs = await prisma.$queryRaw`SELECT "id", "costPrice" FROM "CenterListing" WHERE "centerId" = ${centerId}`;
+      const costByListingId = new Map(costs.map((row) => [row.id, row.costPrice]));
+      center.listings = center.listings.map((listing) => ({ ...listing, costPrice: costByListingId.get(listing.id) ?? 0 }));
+    }
     return NextResponse.json({ center });
   } catch (error) {
     console.error("Center detail failed", error);

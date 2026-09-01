@@ -50,7 +50,7 @@ export default function AdminCentersPage() {
     }
     checkAdmin();
   }
-, []);
+, [router]);
 
   console.log("isAdmin", isAdmin);
  
@@ -66,7 +66,18 @@ export default function AdminCentersPage() {
     else setMessage({ text: data.message, error: true });
   }
 
-  useEffect(() => { loadCenters(); }, [applied]);
+  useEffect(() => {
+    let active = true;
+    const params = new URLSearchParams();
+    if (applied.state) params.set("state", applied.state);
+    if (applied.district) params.set("district", applied.district);
+    if (applied.status !== "ALL") params.set("status", applied.status);
+    fetch(`/api/center/centers?${params}`, { cache: "no-store" })
+      .then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.message); return data.centers; })
+      .then((loadedCenters) => { if (active) setCenters(loadedCenters); })
+      .catch((error) => { if (active) setMessage({ text: error.message, error: true }); });
+    return () => { active = false; };
+  }, [applied]);
 
   const field = (key) => ({
     value: form[key],
@@ -282,7 +293,7 @@ export default function AdminCentersPage() {
                   href={`/admin/centers/${center.id}`}
                   className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
                 >
-                  Manage <ArrowRight size={15} />
+                  Manage storage & purchases <ArrowRight size={15} />
                 </Link>
               </article>
             ))}

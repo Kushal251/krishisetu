@@ -48,11 +48,15 @@ export function LoggedInNavbar({ user: initialUser = null }) {
   if (!user) return null;
   const isSeller = user.role === "SELLER";
   const isFarmer = user.seller?.sellerType === "FARMER" && user.seller?.verificationStatus === "VERIFIED";
-  const navLinks = [{ href: "/dashboard", label: "Dashboard" }, { href: "/centers", label: "Browse centers" }];
+  const navLinks = user.role === "CENTER"
+    ? [{ href: "/dashboard", label: "Dashboard" }, { href: "/center/dashboard", label: "Center dashboard" }, { href: "/center/market", label: "Buy from centers" }]
+    : [{ href: "/dashboard", label: "Dashboard" }, user.role === "BUYER" ? { href: "/buyer/market", label: "Buy soybean" } : { href: "/centers", label: "Browse centers" }];
   const adminLinks = [
     { href: "/admin/centers", label: "Manage centers" },
     { href: "/admin/bookings", label: "Seller bookings" },
-    { href: "/admin/verifications", label: "Verification requests" },
+    { href: "/admin/buyer-orders", label: "Buyer orders" },
+    { href: "/admin/verifications", label: "Seller verification requests" },
+    { href: "/admin/buyer-verifications", label: "Buyer verification requests" },
     { href: "/admin/seasons", label: "Seasons" },
     { href: "/admin/season-registrations", label: "Crop declarations" },
   ];
@@ -60,6 +64,10 @@ export function LoggedInNavbar({ user: initialUser = null }) {
     { href: "/profile", label: "My profile", icon: UserRound },
     ...(isFarmer ? [{ href: "/season-registration", label: "My crops", icon: LayoutDashboard }] : []),
     ...(isSeller ? [{ href: "/bookings", label: "My bookings", icon: BookOpenCheck }] : []),
+    ...(isSeller ? [{ href: "/seller/payment-history", label: "Settlement history", icon: BookOpenCheck }] : []),
+    ...(user.role === "BUYER" ? [{ href: "/buyer/orders", label: "My orders", icon: BookOpenCheck }] : []),
+    ...(user.role === "BUYER" ? [{ href: "/buyer/payment-history", label: "Payment history", icon: BookOpenCheck }] : []),
+    ...(user.role === "CENTER" ? [{ href: "/center/trades", label: "Trade history", icon: BookOpenCheck }] : []),
   ];
   const active = (href) => pathname === href;
 

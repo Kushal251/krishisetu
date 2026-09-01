@@ -27,7 +27,7 @@ export async function GET() {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const [center, todayBookings, pendingInspection] = await Promise.all([
+    const [center, todayBookings, pendingInspection, pendingPurchases, listings] = await Promise.all([
       // Center capacity info
       prisma.center.findUnique({
         where: { id: centerId },
@@ -46,6 +46,18 @@ export async function GET() {
       // Bookings waiting for inspection (ARRIVED status)
       prisma.booking.count({
         where: { centerId, status: "ARRIVED" },
+      }),
+
+      prisma.booking.findMany({
+        where: { centerId, status: "GRADED", inspection: { is: { sellerDecision: "ACCEPTED" } } },
+        select: { id: true, quantity: true, seller: { select: { user: { select: { name: true, phone: true } } } }, inspection: { select: { grade: true, gradePrice: true } } },
+        orderBy: { createdAt: "asc" },
+      }),
+
+      prisma.centerListing.findMany({
+        where: { centerId, isActive: true, availableQty: { gt: 0 } },
+        select: { id: true, grade: true, availableQty: true, reservedQty: true, pricePerQuintal: true, availableUntil: true, pickupStart: true, pickupEnd: true },
+        orderBy: { availableUntil: "asc" },
       }),
 
     ]);
@@ -71,6 +83,8 @@ export async function GET() {
         utilizationPct,
         availableCapacity: totalCapacity - usedCapacity,
       },
+      pendingPurchases,
+      listings,
     });
   } catch (error) {
     console.error("Center dashboard failed", error);

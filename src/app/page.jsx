@@ -88,18 +88,11 @@ export default function Home() {
                         <a href="#stories">Stories</a>
                     </nav>
 
-                    <div className="hidden md:flex items-center gap-5">
-                        <Link href="/login" className="text-sm font-bold">
-                            Log in
-                        </Link>
-
-                        <Link
-                            href="/register"
-                            className="bg-green-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm font-bold hover:bg-green-800 transition"
-                        >
-                            Get started
-                            <ArrowRight size={16} />
-                        </Link>
+                    <div className="hidden md:flex items-center gap-3 text-sm font-bold">
+                        <Link href="/login" className="text-gray-700 hover:text-green-700">Seller login</Link>
+                        <Link href="/register" className="rounded-lg border border-green-700 px-3 py-2 text-green-800 hover:bg-green-50">Seller signup</Link>
+                        <Link href="/buyer/login" className="text-gray-700 hover:text-green-700">Buyer login</Link>
+                        <Link href="/buyer/register" className="bg-green-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 hover:bg-green-800 transition">Buyer signup <ArrowRight size={16} /></Link>
                     </div>
 
                     <button className="ml-auto md:hidden" onClick={() => setOpen(!open)}>
@@ -112,12 +105,10 @@ export default function Home() {
                         <a href="#opportunities" className="block">
                             Explore
                         </a>
-                        <Link href="/login" className="block">
-                            Log in
-                        </Link>
-                        <Link href="/register" className="block text-green-700">
-                            Create account
-                        </Link>
+                        <Link href="/login" className="block">Seller login</Link>
+                        <Link href="/register" className="block text-green-700">Seller signup</Link>
+                        <Link href="/buyer/login" className="block">Buyer login</Link>
+                        <Link href="/buyer/register" className="block text-green-700">Buyer signup</Link>
                     </div>
                 )}
             </header>

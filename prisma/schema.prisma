@@ -88,6 +88,33 @@ enum Grade {
   C
 }
 
+enum SellerDecision {
+  PENDING
+  ACCEPTED
+  RETEST_REQUESTED
+}
+
+enum CenterPurchaseDecision {
+  PENDING
+  ACCEPTED
+}
+
+enum BuyerType {
+  PROCESSOR
+  WHOLESALER
+  RETAILER
+  EXPORTER
+}
+
+enum BuyerOrderStatus {
+  ORDERED
+  PHYSICAL_CHECK_PENDING
+  PHYSICAL_CHECKED
+  CONFIRMED
+  CANCELLED
+  PAID
+}
+
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 model User {
@@ -107,12 +134,14 @@ model User {
   center   Center? @relation("CenterOperators", fields: [centerId], references: [id])
 
   seller                       Seller?
+  buyer                        Buyer?
   reviewedVerificationRequests VerificationRequest[] @relation("ReviewedBy")
   notifications                Notification[]
   inspections                  QualityInspection[]   @relation("Inspector")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  BuyerVerificationRequest BuyerVerificationRequest[]
 }
 
 // ─── Seller / Farmer ──────────────────────────────────────────────────────────
@@ -138,6 +167,41 @@ model Seller {
   fpo                  FPOProfile?
   bookings             Booking[]
   verificationRequests VerificationRequest[]
+}
+
+model Buyer {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  buyerType    BuyerType
+  businessName String
+  gstin        String    @unique
+  panNumber    String
+  address      String
+  city         String
+  state        String
+  pinCode      String    @db.Char(6)
+
+  verificationStatus   VerificationStatus         @default(PENDING)
+  user                 User                       @relation(fields: [userId], references: [id])
+  orders               BuyerOrder[]
+  verificationRequests BuyerVerificationRequest[]
+}
+
+model BuyerVerificationRequest {
+  id           String                    @id @default(cuid())
+  buyerId      String
+  status       VerificationRequestStatus @default(PENDING)
+  note         String?
+  adminNote    String?
+  reviewedById String?
+  createdAt    DateTime                  @default(now())
+  reviewedAt   DateTime?
+
+  buyer      Buyer @relation(fields: [buyerId], references: [id])
+  reviewedBy User? @relation(fields: [reviewedById], references: [id])
+
+  @@index([buyerId, status])
 }
 
 model FarmerProfile {
@@ -277,9 +341,83 @@ model Center {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  operators  User[]      @relation("CenterOperators")
+  operators  User[]          @relation("CenterOperators")
   cropPrices CropPrice[]
+  listings   CenterListing[]
   bookings   Booking[]
+  tradePurchases CenterTradeOrder[] @relation("CenterTradeBuyer")
+  tradeSales     CenterTradeOrder[] @relation("CenterTradeSeller")
+}
+
+model CenterListing {
+  id              String       @id @default(cuid())
+  centerId        String
+  center          Center       @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  crop            CropType     @default(SOYBEAN)
+  grade           Grade
+  availableQty    Decimal      @db.Decimal(10, 2)
+  reservedQty     Decimal      @default(0) @db.Decimal(10, 2)
+  costPrice       Decimal      @default(0) @db.Decimal(10, 2)
+  pricePerQuintal Decimal      @db.Decimal(10, 2)
+  storageCharge   Decimal      @default(0) @db.Decimal(10, 2)
+  handlingCharge  Decimal      @default(0) @db.Decimal(10, 2)
+  gstRate         Float        @default(0)
+  availableUntil  DateTime
+  pickupStart     DateTime
+  pickupEnd       DateTime
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  orders          BuyerOrder[]
+  tradeOrders     CenterTradeOrder[]
+}
+
+model BuyerOrder {
+  id                 String           @id @default(cuid())
+  buyerId            String
+  buyer              Buyer            @relation(fields: [buyerId], references: [id])
+  listingId          String
+  listing            CenterListing    @relation(fields: [listingId], references: [id])
+  requestedQty       Decimal          @db.Decimal(10, 2)
+  finalQty           Decimal?         @db.Decimal(10, 2)
+  buyerProposedPrice Decimal?         @db.Decimal(10, 2)
+  buyerNegotiationNote String?
+  physicalCheckApprovedAt DateTime?
+  deliveryAddress    String
+  status             BuyerOrderStatus @default(ORDERED)
+  inspectionNote     String?
+  cancelReason       String?
+  paymentConfirmedAt DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([buyerId, createdAt])
+  @@index([listingId, status])
+}
+
+// ─── Center-to-center trade ─────────────────────────────────────────────────
+
+model CenterTradeOrder {
+  id             String           @id @default(cuid())
+  buyerCenterId  String
+  buyerCenter    Center           @relation("CenterTradeBuyer", fields: [buyerCenterId], references: [id])
+  sellerCenterId String
+  sellerCenter   Center           @relation("CenterTradeSeller", fields: [sellerCenterId], references: [id])
+  listingId      String
+  listing        CenterListing    @relation(fields: [listingId], references: [id])
+  requestedQty   Decimal          @db.Decimal(10, 2)
+  finalQty       Decimal?         @db.Decimal(10, 2)
+  proposedPrice  Decimal?         @db.Decimal(10, 2)
+  negotiationNote String?
+  status         BuyerOrderStatus @default(ORDERED)
+  cancelReason   String?
+  settledAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([buyerCenterId, createdAt])
+  @@index([sellerCenterId, createdAt])
+  @@index([listingId, status])
 }
 
 model CropPrice {
@@ -337,8 +475,24 @@ model QualityInspection {
   aiScore Float?
   grade   Grade
 
+  basePrice     Decimal @default(0) @db.Decimal(10, 2)
+  gradePrice    Decimal @default(0) @db.Decimal(10, 2)
+  storageCharge Decimal @default(0) @db.Decimal(10, 2)
+  labourCharge  Decimal @default(0) @db.Decimal(10, 2)
+  otherCharge   Decimal @default(0) @db.Decimal(10, 2)
+  bonus         Decimal @default(0) @db.Decimal(10, 2)
+  bonusReason   String?
+  suggestion    String?
+
+  sellerDecision   SellerDecision @default(PENDING)
+  sellerDecisionAt DateTime?
+  centerDecision   CenterPurchaseDecision @default(PENDING)
+  centerDecisionAt DateTime?
+  finalizedAt      DateTime?
+
   inspectorId String
   inspector   User   @relation("Inspector", fields: [inspectorId], references: [id])
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

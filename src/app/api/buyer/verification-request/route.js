@@ -1,0 +1,6 @@
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { prisma } from "../../../../../lib/prisma";
+import { verifyToken } from "../../../../../lib/jwt";
+
+export async function POST(request) { try { const session = verifyToken((await cookies()).get("token")?.value); const user = session?.id && await prisma.user.findUnique({ where: { id: session.id }, include: { buyer: true } }); if (user?.role !== "BUYER" || !user.buyer) return NextResponse.json({ message: "Buyer access required." }, { status: 403 }); if (user.buyer.verificationStatus === "VERIFIED") return NextResponse.json({ message: "Buyer profile is already verified." }, { status: 400 }); const pending = await prisma.buyerVerificationRequest.findFirst({ where: { buyerId: user.buyer.id, status: "PENDING" } }); if (pending) return NextResponse.json({ message: "Your verification request is already pending." }, { status: 409 }); const { note = "" } = await request.json(); const verificationRequest = await prisma.buyerVerificationRequest.create({ data: { buyerId: user.buyer.id, note: String(note).trim().slice(0, 500) } }); return NextResponse.json({ verificationRequest }, { status: 201 }); } catch { return NextResponse.json({ message: "Could not submit buyer verification request." }, { status: 500 }); } }

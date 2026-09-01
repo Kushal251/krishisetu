@@ -37,6 +37,16 @@ export async function GET(req) {
                         fpo: { select: { organizationName: true, registrationNo: true, memberCount: true } },
                     },
                 },
+                buyer: {
+                    select: {
+                        buyerType: true, businessName: true, gstin: true, panNumber: true, address: true, city: true, state: true, pinCode: true, verificationStatus: true,
+                        verificationRequests: {
+                            orderBy: { createdAt: "desc" },
+                            take: 1,
+                            select: { status: true, createdAt: true, adminNote: true },
+                        },
+                    },
+                },
                 notifications: {
                     orderBy: { createdAt: "desc" },
                     take: 10,
