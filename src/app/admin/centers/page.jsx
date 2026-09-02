@@ -5,9 +5,11 @@ import Link from "next/link";
 import { LoggedInNavbar } from "../../../component/LoggedInNavbar";
 import { Building2, MapPin, Phone, ArrowRight, Plus, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { MPLocationFields } from "../../../component/MPLocationFields";
+import { MP_STATE } from "../../../../lib/mpLocations";
 
 const INITIAL_FORM = {
-  code: "", name: "", state: "", district: "", village: "",
+  code: "", name: "", state: MP_STATE, division: "", district: "", village: "",
   pinCode: "", address: "", latitude: "", longitude: "",
   phone: "", email: "", totalCapacity: "",
 };
@@ -150,22 +152,7 @@ export default function AdminCentersPage() {
                   <label className="mb-1 block text-xs font-bold text-gray-500 uppercase">Center name *</label>
                   <input required placeholder="Full center name" {...field("name")} />
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 uppercase">State *</label>
-                  <input required placeholder="Maharashtra" {...field("state")} />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 uppercase">District *</label>
-                  <input required placeholder="Pune" {...field("district")} />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 uppercase">Village</label>
-                  <input placeholder="Village (optional)" {...field("village")} />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 uppercase">PIN Code *</label>
-                  <input required maxLength={6} placeholder="6-digit PIN" {...field("pinCode")} />
-                </div>
+                <MPLocationFields value={form} onChange={setForm} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none disabled:bg-gray-100" />
                 <div className="sm:col-span-2">
                   <label className="mb-1 block text-xs font-bold text-gray-500 uppercase">Address *</label>
                   <input required placeholder="Full address" {...field("address")} />

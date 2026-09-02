@@ -10,9 +10,10 @@ async function requireAdmin() {
 }
 
 // POST /api/center/centers/[id]/operators
-// Body: { userId } — assigns a CENTER-role user as operator of this center
+// Body: { userId } — assigns a CENTER or ADMIN user as operator of this center
 export async function POST(request, { params }) {
   try {
+    const { id: centerId } = await params;
     const admin = await requireAdmin();
     if (admin?.role !== "ADMIN")
       return NextResponse.json({ message: "Admin access required." }, { status: 403 });
@@ -21,25 +22,25 @@ export async function POST(request, { params }) {
     if (!userId?.trim())
       return NextResponse.json({ message: "userId is required." }, { status: 400 });
 
-    // Verify the user exists and has CENTER role
+    // Center operators can be dedicated CENTER users or administrators.
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, role: true, name: true },
     });
     if (!user)
       return NextResponse.json({ message: "User not found." }, { status: 404 });
-    if (user.role !== "CENTER")
-      return NextResponse.json({ message: "Only CENTER-role users can be assigned as operators." }, { status: 400 });
+    if (!["CENTER", "ADMIN"].includes(user.role))
+      return NextResponse.json({ message: "Only CENTER or ADMIN users can be assigned as operators." }, { status: 400 });
 
     // Verify center exists
-    const center = await prisma.center.findUnique({ where: { id: params.id }, select: { id: true } });
+    const center = await prisma.center.findUnique({ where: { id: centerId }, select: { id: true } });
     if (!center)
       return NextResponse.json({ message: "Center not found." }, { status: 404 });
 
     // Link user to this center
     const updated = await prisma.user.update({
       where: { id: userId },
-      data: { centerId: params.id },
+      data: { centerId },
       select: { id: true, name: true, phone: true, email: true, centerId: true },
     });
 
@@ -54,6 +55,7 @@ export async function POST(request, { params }) {
 // Body: { userId } — removes operator from center
 export async function DELETE(request, { params }) {
   try {
+    const { id: centerId } = await params;
     const admin = await requireAdmin();
     if (admin?.role !== "ADMIN")
       return NextResponse.json({ message: "Admin access required." }, { status: 403 });
@@ -64,7 +66,7 @@ export async function DELETE(request, { params }) {
 
     // Unlink user from this center only if they belong to this center
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { centerId: true } });
-    if (!user || user.centerId !== params.id)
+    if (!user || user.centerId !== centerId)
       return NextResponse.json({ message: "This user is not an operator of this center." }, { status: 400 });
 
     await prisma.user.update({ where: { id: userId }, data: { centerId: null } });

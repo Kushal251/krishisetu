@@ -13,14 +13,14 @@ export async function GET(request) {
     const status = searchParams.get("status") || "PENDING";
     const buyerType = searchParams.get("buyerType");
     const state = searchParams.get("state")?.trim();
-    const city = searchParams.get("city")?.trim();
+    const district = (searchParams.get("district") || searchParams.get("city"))?.trim();
     const requests = await prisma.buyerVerificationRequest.findMany({
       where: {
         ...(status !== "ALL" ? { status } : {}),
         buyer: {
           ...(buyerType && buyerType !== "ALL" ? { buyerType } : {}),
           ...(state ? { state: { contains: state, mode: "insensitive" } } : {}),
-          ...(city ? { city: { contains: city, mode: "insensitive" } } : {}),
+          ...(district ? { district: { contains: district, mode: "insensitive" } } : {}),
         },
       },
       orderBy: { createdAt: "asc" },
@@ -28,13 +28,13 @@ export async function GET(request) {
         id: true, status: true, note: true, adminNote: true, createdAt: true, reviewedAt: true,
         buyer: {
           select: {
-            buyerType: true, businessName: true, gstin: true, panNumber: true, address: true, city: true, state: true, pinCode: true, verificationStatus: true,
+            buyerType: true, businessName: true, gstin: true, panNumber: true, address: true, state: true, division: true, district: true, village: true, pinCode: true, verificationStatus: true,
             user: { select: { name: true, phone: true, email: true } },
           },
         },
       },
     });
-    return NextResponse.json({ requests });
+    return NextResponse.json({ requests: requests.map((item) => ({ ...item, buyer: { ...item.buyer, city: item.buyer.village } })) });
   } catch (error) {
     console.error("Buyer verification queue failed", error);
     return NextResponse.json({ message: "Could not load buyer verification requests." }, { status: 500 });

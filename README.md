@@ -1,40 +1,38 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# KrishiSetu
 
-## Getting Started
+KrishiSetu is a Next.js and PostgreSQL marketplace for farmers, buyers and agricultural centers. It includes seasonal crop declarations, soybean procurement, quality grading, center inventory, buyer orders, center-to-center trading and ML-assisted market forecasting.
 
-First, run the development server:
+## Web application
 
-```bash
+```powershell
+npm install
+npx prisma migrate deploy
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Copy `.env.example` to `.env` and configure `DATABASE_URL` and `JWT_SECRET`. The ML service URL defaults to `http://127.0.0.1:8000`.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## ML forecasting service
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The first model supports Soybean in Madhya Pradesh and predicts demand in quintal and price in INR/quintal.
 
-## Learn More
+```powershell
+cd ml-service
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe train.py --data "C:\path\to\soybean_madhya_pradesh_10000_enhanced.csv"
+cd ..
+npm run ml:start
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open `/market-forecast` after signing in. The website sends registered center stock, incoming bookings, recent buyer demand, price history and static district/month weather to the Python service. If the service is unavailable, the page clearly reports a deterministic fallback estimate instead of returning random values.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The recommendation layer also combines verified seasonal farmer declarations, previous-season arrivals and demand, buyer orders, center-to-center trades, route cost and transaction reliability. Buyers see ranked listings, sellers see ranked procurement centers, and center operators see an expected supply-versus-demand decision with a suggested inter-center purchase quantity. Admins can override the static district weather assumptions from `/admin/seasons`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Verification
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
-# krishisetu
->>>>>>> 1f77ab4a0c57da171d53814ece2463b4a5acdf53
+```powershell
+npm run lint
+npm run build
+Invoke-RestMethod http://127.0.0.1:8000/health
+```

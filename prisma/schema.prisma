@@ -152,9 +152,11 @@ model Seller {
 
   sellerType SellerType
 
-  village  String
-  district String
   state    String
+  division String
+  district String
+  village  String
+  pinCode  String @db.Char(6)
   address  String
 
   bankAccount String
@@ -167,6 +169,8 @@ model Seller {
   fpo                  FPOProfile?
   bookings             Booking[]
   verificationRequests VerificationRequest[]
+
+  @@index([state, division, district])
 }
 
 model Buyer {
@@ -178,14 +182,18 @@ model Buyer {
   gstin        String    @unique
   panNumber    String
   address      String
-  city         String
   state        String
+  division     String
+  district     String
+  village      String
   pinCode      String    @db.Char(6)
 
   verificationStatus   VerificationStatus         @default(PENDING)
   user                 User                       @relation(fields: [userId], references: [id])
   orders               BuyerOrder[]
   verificationRequests BuyerVerificationRequest[]
+
+  @@index([state, division, district])
 }
 
 model BuyerVerificationRequest {
@@ -262,17 +270,37 @@ model Notification {
 // ─── Season ───────────────────────────────────────────────────────────────────
 
 model Season {
-  id            String               @id @default(cuid())
-  name          SeasonName
-  year          String
-  startDate     DateTime
-  endDate       DateTime
-  status        SeasonStatus         @default(UPCOMING)
-  createdAt     DateTime             @default(now())
-  registrations SeasonRegistration[]
+  id              String                 @id @default(cuid())
+  name            SeasonName
+  year            String
+  startDate       DateTime
+  endDate         DateTime
+  status          SeasonStatus           @default(UPCOMING)
+  createdAt       DateTime               @default(now())
+  registrations   SeasonRegistration[]
+  weatherProfiles SeasonWeatherProfile[]
 
   @@unique([name, year])
   @@index([status, startDate])
+}
+
+model SeasonWeatherProfile {
+  id              String   @id @default(cuid())
+  seasonId        String
+  season          Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  district        String
+  condition       String
+  rainfallMm      Float
+  temperatureC    Float
+  yieldFactor     Float    @default(1)
+  qualityFactor   Float    @default(1)
+  transportFactor Float    @default(1)
+  note            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([seasonId, district])
+  @@index([district, seasonId])
 }
 
 model SeasonRegistration {
@@ -322,9 +350,10 @@ model Center {
   name String
 
   state    String
+  division String
   district String
-  village  String?
-  pinCode  String  @db.Char(6)
+  village  String
+  pinCode  String @db.Char(6)
 
   address   String
   latitude  Float?
@@ -341,55 +370,58 @@ model Center {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  operators  User[]          @relation("CenterOperators")
-  cropPrices CropPrice[]
-  listings   CenterListing[]
-  bookings   Booking[]
+  operators      User[]             @relation("CenterOperators")
+  cropPrices     CropPrice[]
+  priceHistory   CropPriceHistory[]
+  listings       CenterListing[]
+  bookings       Booking[]
   tradePurchases CenterTradeOrder[] @relation("CenterTradeBuyer")
   tradeSales     CenterTradeOrder[] @relation("CenterTradeSeller")
+
+  @@index([state, division, district])
 }
 
 model CenterListing {
-  id              String       @id @default(cuid())
+  id              String             @id @default(cuid())
   centerId        String
-  center          Center       @relation(fields: [centerId], references: [id], onDelete: Cascade)
-  crop            CropType     @default(SOYBEAN)
+  center          Center             @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  crop            CropType           @default(SOYBEAN)
   grade           Grade
-  availableQty    Decimal      @db.Decimal(10, 2)
-  reservedQty     Decimal      @default(0) @db.Decimal(10, 2)
-  costPrice       Decimal      @default(0) @db.Decimal(10, 2)
-  pricePerQuintal Decimal      @db.Decimal(10, 2)
-  storageCharge   Decimal      @default(0) @db.Decimal(10, 2)
-  handlingCharge  Decimal      @default(0) @db.Decimal(10, 2)
-  gstRate         Float        @default(0)
+  availableQty    Decimal            @db.Decimal(10, 2)
+  reservedQty     Decimal            @default(0) @db.Decimal(10, 2)
+  costPrice       Decimal            @default(0) @db.Decimal(10, 2)
+  pricePerQuintal Decimal            @db.Decimal(10, 2)
+  storageCharge   Decimal            @default(0) @db.Decimal(10, 2)
+  handlingCharge  Decimal            @default(0) @db.Decimal(10, 2)
+  gstRate         Float              @default(0)
   availableUntil  DateTime
   pickupStart     DateTime
   pickupEnd       DateTime
-  isActive        Boolean      @default(true)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   orders          BuyerOrder[]
   tradeOrders     CenterTradeOrder[]
 }
 
 model BuyerOrder {
-  id                 String           @id @default(cuid())
-  buyerId            String
-  buyer              Buyer            @relation(fields: [buyerId], references: [id])
-  listingId          String
-  listing            CenterListing    @relation(fields: [listingId], references: [id])
-  requestedQty       Decimal          @db.Decimal(10, 2)
-  finalQty           Decimal?         @db.Decimal(10, 2)
-  buyerProposedPrice Decimal?         @db.Decimal(10, 2)
-  buyerNegotiationNote String?
+  id                      String           @id @default(cuid())
+  buyerId                 String
+  buyer                   Buyer            @relation(fields: [buyerId], references: [id])
+  listingId               String
+  listing                 CenterListing    @relation(fields: [listingId], references: [id])
+  requestedQty            Decimal          @db.Decimal(10, 2)
+  finalQty                Decimal?         @db.Decimal(10, 2)
+  buyerProposedPrice      Decimal?         @db.Decimal(10, 2)
+  buyerNegotiationNote    String?
   physicalCheckApprovedAt DateTime?
-  deliveryAddress    String
-  status             BuyerOrderStatus @default(ORDERED)
-  inspectionNote     String?
-  cancelReason       String?
-  paymentConfirmedAt DateTime?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  deliveryAddress         String
+  status                  BuyerOrderStatus @default(ORDERED)
+  inspectionNote          String?
+  cancelReason            String?
+  paymentConfirmedAt      DateTime?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
 
   @@index([buyerId, createdAt])
   @@index([listingId, status])
@@ -398,22 +430,22 @@ model BuyerOrder {
 // ─── Center-to-center trade ─────────────────────────────────────────────────
 
 model CenterTradeOrder {
-  id             String           @id @default(cuid())
-  buyerCenterId  String
-  buyerCenter    Center           @relation("CenterTradeBuyer", fields: [buyerCenterId], references: [id])
-  sellerCenterId String
-  sellerCenter   Center           @relation("CenterTradeSeller", fields: [sellerCenterId], references: [id])
-  listingId      String
-  listing        CenterListing    @relation(fields: [listingId], references: [id])
-  requestedQty   Decimal          @db.Decimal(10, 2)
-  finalQty       Decimal?         @db.Decimal(10, 2)
-  proposedPrice  Decimal?         @db.Decimal(10, 2)
+  id              String           @id @default(cuid())
+  buyerCenterId   String
+  buyerCenter     Center           @relation("CenterTradeBuyer", fields: [buyerCenterId], references: [id])
+  sellerCenterId  String
+  sellerCenter    Center           @relation("CenterTradeSeller", fields: [sellerCenterId], references: [id])
+  listingId       String
+  listing         CenterListing    @relation(fields: [listingId], references: [id])
+  requestedQty    Decimal          @db.Decimal(10, 2)
+  finalQty        Decimal?         @db.Decimal(10, 2)
+  proposedPrice   Decimal?         @db.Decimal(10, 2)
   negotiationNote String?
-  status         BuyerOrderStatus @default(ORDERED)
-  cancelReason   String?
-  settledAt      DateTime?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  status          BuyerOrderStatus @default(ORDERED)
+  cancelReason    String?
+  settledAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@index([buyerCenterId, createdAt])
   @@index([sellerCenterId, createdAt])
@@ -431,6 +463,20 @@ model CropPrice {
 
   @@unique([centerId, crop])
   @@index([crop, updatedAt])
+}
+
+model CropPriceHistory {
+  id         String   @id @default(cuid())
+  centerId   String
+  center     Center   @relation(fields: [centerId], references: [id], onDelete: Cascade)
+  crop       CropType @default(SOYBEAN)
+  price      Decimal  @db.Decimal(10, 2)
+  unit       String   @default("quintal")
+  source     String   @default("ADMIN_UPDATE")
+  recordedAt DateTime @default(now())
+
+  @@index([centerId, crop, recordedAt])
+  @@index([crop, recordedAt])
 }
 
 // ─── Booking (Farmer → Center) ────────────────────────────────────────────────
@@ -484,7 +530,7 @@ model QualityInspection {
   bonusReason   String?
   suggestion    String?
 
-  sellerDecision   SellerDecision @default(PENDING)
+  sellerDecision   SellerDecision         @default(PENDING)
   sellerDecisionAt DateTime?
   centerDecision   CenterPurchaseDecision @default(PENDING)
   centerDecisionAt DateTime?

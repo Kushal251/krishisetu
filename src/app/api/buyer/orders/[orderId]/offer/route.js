@@ -8,13 +8,13 @@ export async function POST(request, { params }) {
   try {
     const session = verifyToken((await cookies()).get("token")?.value);
     const user = session?.id && await prisma.user.findUnique({ where: { id: session.id }, include: { buyer: true } });
-    if (user?.role !== "BUYER" || !user.buyer) return NextResponse.json({ message: "Buyer access required." }, { status: 403 });
+    if (!user || !["BUYER", "ADMIN"].includes(user.role) || (user.role === "BUYER" && !user.buyer)) return NextResponse.json({ message: "Buyer or admin access required." }, { status: 403 });
     const { orderId } = await params;
     const { quantity, proposedPrice, negotiationNote } = await request.json();
     const nextQty = Number(quantity); const nextPrice = Number(proposedPrice);
     if (!Number.isFinite(nextQty) || nextQty <= 0 || !Number.isFinite(nextPrice) || nextPrice <= 0) return NextResponse.json({ message: "Enter a valid quantity and price offer." }, { status: 400 });
     const result = await prisma.$transaction(async (tx) => {
-      const order = await tx.buyerOrder.findFirst({ where: { id: orderId, buyerId: user.buyer.id }, include: { listing: true } });
+      const order = await tx.buyerOrder.findFirst({ where: { id: orderId, ...(user.role === "ADMIN" ? {} : { buyerId: user.buyer.id }) }, include: { listing: true } });
       if (!order || order.status !== "PHYSICAL_CHECKED") return { error: "Your order is not ready for an offer." };
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CenterListing" WHERE "id" = ${order.listingId} FOR UPDATE`);
       const listing = await tx.centerListing.findUnique({ where: { id: order.listingId } });

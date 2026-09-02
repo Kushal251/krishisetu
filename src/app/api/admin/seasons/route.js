@@ -12,7 +12,10 @@ async function requireAdmin() {
 export async function GET() {
   const admin = await requireAdmin();
   if (admin?.role !== "ADMIN") return NextResponse.json({ message: "Admin access required." }, { status: 403 });
-  const seasons = await prisma.season.findMany({ orderBy: { startDate: "desc" }, include: { _count: { select: { registrations: true } } } });
+  const seasons = await prisma.season.findMany({
+    orderBy: { startDate: "desc" },
+    include: { weatherProfiles: { orderBy: { district: "asc" } }, _count: { select: { registrations: true } } },
+  });
   return NextResponse.json({ seasons });
 }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { prisma } from "../../../../../../lib/prisma";
-import { verifyToken } from "../../../../../../lib/jwt";
+import { prisma } from "../../../../../../../lib/prisma";
+import { verifyToken } from "../../../../../../../lib/jwt";
 
 export async function PATCH(request, { params }) {
   try {

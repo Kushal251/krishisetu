@@ -16,6 +16,7 @@ export default function CenterDetailPage() {
   const [form, setForm] = useState({ visitDate: "", quantity: "", password: "" });
   const [message, setMessage] = useState({ text: "", error: false });
   const [saving, setSaving] = useState(false);
+  const [adminMode, setAdminMode] = useState(false);
 
   async function loadAvailability(date = today) {
     const response = await fetch(`/api/seller/centers/${id}/availability?date=${date}`, { cache: "no-store" });
@@ -28,7 +29,8 @@ export default function CenterDetailPage() {
     Promise.all([
       fetch(`/api/center/centers/${id}`, { cache: "no-store" }).then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.message); return data.center; }),
       fetch(`/api/seller/centers/${id}/availability?date=${today}`, { cache: "no-store" }).then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.message); return data; }),
-    ]).then(([loadedCenter, loadedAvailability]) => { setCenter(loadedCenter); setAvailability(loadedAvailability); }).catch((error) => setMessage({ text: error.message, error: true }));
+      fetch("/api/me", { cache: "no-store" }).then((response) => response.json()),
+    ]).then(([loadedCenter, loadedAvailability, viewer]) => { setCenter(loadedCenter); setAvailability(loadedAvailability); setAdminMode(viewer.user?.role === "ADMIN"); }).catch((error) => setMessage({ text: error.message, error: true }));
   }, [id]);
 
   async function chooseDate(visitDate) {
@@ -41,7 +43,9 @@ export default function CenterDetailPage() {
     event.preventDefault();
     setSaving(true); setMessage({ text: "", error: false });
     try {
-      const response = await fetch("/api/seller/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ centerId: id, ...form }) });
+      const sellerId = adminMode ? window.prompt("Verified seller ID जिसके लिए booking बनानी है:") : undefined;
+      if (adminMode && !sellerId) throw new Error("Admin booking के लिए seller ID जरूरी है.");
+      const response = await fetch("/api/seller/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ centerId: id, ...form, sellerId }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
       setMessage({ text: `Booking confirmed at ${data.booking.center.name} for ${formatDate(form.visitDate)}.`, error: false });

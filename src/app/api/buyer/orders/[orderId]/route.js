@@ -8,10 +8,10 @@ export async function PATCH(request, { params }) {
   try {
     const session = verifyToken((await cookies()).get("token")?.value);
     const user = session?.id && await prisma.user.findUnique({ where: { id: session.id }, include: { buyer: true } });
-    if (user?.role !== "BUYER" || !user.buyer) return NextResponse.json({ message: "Buyer access required." }, { status: 403 });
+    if (!user || !["BUYER", "ADMIN"].includes(user.role) || (user.role === "BUYER" && !user.buyer)) return NextResponse.json({ message: "Buyer or admin access required." }, { status: 403 });
     const { orderId } = await params;
     const { action, reason, quantity, proposedPrice, negotiationNote } = await request.json();
-    const order = await prisma.buyerOrder.findFirst({ where: { id: orderId, buyerId: user.buyer.id }, include: { listing: true } });
+    const order = await prisma.buyerOrder.findFirst({ where: { id: orderId, ...(user.role === "ADMIN" ? {} : { buyerId: user.buyer.id }) }, include: { listing: true } });
     if (!order || ["CANCELLED", "PAID"].includes(order.status)) return NextResponse.json({ message: "This order cannot be changed." }, { status: 400 });
     if (action === "REQUEST_PHYSICAL_CHECK" && order.status === "ORDERED") {
       await prisma.buyerOrder.update({ where: { id: orderId }, data: { status: "PHYSICAL_CHECK_PENDING" } });

@@ -8,8 +8,8 @@ export async function GET() {
   try {
     const session = verifyToken((await cookies()).get("token")?.value);
     const user = session?.id && await prisma.user.findUnique({ where: { id: session.id }, include: { buyer: true } });
-    if (user?.role !== "BUYER" || !user.buyer) return NextResponse.json({ message: "Buyer access required." }, { status: 403 });
-    const orders = await prisma.buyerOrder.findMany({ where: { buyerId: user.buyer.id }, include: { listing: { include: { center: { select: { name: true, address: true, district: true, state: true, phone: true } } } } }, orderBy: { createdAt: "desc" } });
+    if (!user || !["BUYER", "ADMIN"].includes(user.role) || (user.role === "BUYER" && !user.buyer)) return NextResponse.json({ message: "Buyer or admin access required." }, { status: 403 });
+    const orders = await prisma.buyerOrder.findMany({ where: user.role === "ADMIN" ? {} : { buyerId: user.buyer.id }, include: { buyer: { select: { businessName: true, user: { select: { name: true } } } }, listing: { include: { center: { select: { name: true, address: true, district: true, state: true, phone: true } } } } }, orderBy: { createdAt: "desc" } });
     const normalizedOrders = orders.map((order) => {
       try { const offer = JSON.parse(order.inspectionNote || "{}"); return { ...order, buyerProposedPrice: offer.buyerProposedPrice ?? null, buyerNegotiationNote: offer.buyerNegotiationNote ?? null }; }
       catch { return order; }
@@ -22,10 +22,12 @@ export async function POST(request) {
   try {
     const session = verifyToken((await cookies()).get("token")?.value);
     const user = session?.id && await prisma.user.findUnique({ where: { id: session.id }, include: { buyer: true } });
-    if (user?.role !== "BUYER" || !user.buyer || user.buyer.verificationStatus !== "VERIFIED") return NextResponse.json({ message: "Only verified buyers can place orders." }, { status: 403 });
-    const { listingId, quantity, deliveryAddress } = await request.json(); const requestedQty = Number(quantity);
+    if (!user || !["BUYER", "ADMIN"].includes(user.role)) return NextResponse.json({ message: "Buyer or admin access required." }, { status: 403 });
+    const { listingId, quantity, deliveryAddress, buyerId: requestedBuyerId } = await request.json(); const requestedQty = Number(quantity);
+    const targetBuyer = user.role === "ADMIN" ? await prisma.buyer.findUnique({ where: { id: requestedBuyerId || "" } }) : user.buyer;
+    if (!targetBuyer || targetBuyer.verificationStatus !== "VERIFIED") return NextResponse.json({ message: "Select a verified buyer before placing an admin order." }, { status: 403 });
     if (!listingId || !deliveryAddress?.trim() || !Number.isFinite(requestedQty) || requestedQty <= 0) return NextResponse.json({ message: "Enter a valid quantity and delivery address." }, { status: 400 });
-    const result = await prisma.$transaction(async (tx) => { await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CenterListing" WHERE "id" = ${listingId} FOR UPDATE`); const listing = await tx.centerListing.findFirst({ where: { id: listingId, isActive: true, availableUntil: { gte: new Date() } } }); if (!listing) return { error: "This listing is no longer available." }; const remaining = Number(listing.availableQty) - Number(listing.reservedQty); if (requestedQty > remaining) return { error: `Only ${remaining.toFixed(2)} quintal is available.` }; const order = await tx.buyerOrder.create({ data: { buyerId: user.buyer.id, listingId, requestedQty, deliveryAddress: deliveryAddress.trim() } }); await tx.centerListing.update({ where: { id: listingId }, data: { reservedQty: { increment: requestedQty } } }); return { order }; }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    const result = await prisma.$transaction(async (tx) => { await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "CenterListing" WHERE "id" = ${listingId} FOR UPDATE`); const listing = await tx.centerListing.findFirst({ where: { id: listingId, isActive: true, availableUntil: { gte: new Date() } } }); if (!listing) return { error: "This listing is no longer available." }; const remaining = Number(listing.availableQty) - Number(listing.reservedQty); if (requestedQty > remaining) return { error: `Only ${remaining.toFixed(2)} quintal is available.` }; const order = await tx.buyerOrder.create({ data: { buyerId: targetBuyer.id, listingId, requestedQty, deliveryAddress: deliveryAddress.trim() } }); await tx.centerListing.update({ where: { id: listingId }, data: { reservedQty: { increment: requestedQty } } }); return { order }; }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     if (result.error) return NextResponse.json({ message: result.error }, { status: 409 }); return NextResponse.json(result, { status: 201 });
   } catch (error) { if (error?.code === "P2034") return NextResponse.json({ message: "Availability changed. Please try again." }, { status: 409 }); return NextResponse.json({ message: "Could not place order." }, { status: 500 }); }
 }
