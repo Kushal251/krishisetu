@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
 import { hashPassword } from "../../../../../lib/bcrypt";
+import { resolveMpLocation } from "../../../../../lib/mpLocations";
 
 const SELLER_TYPES = ["FARMER", "FPO", "TRADER", "COOPERATIVE"];
 
@@ -11,7 +12,7 @@ export async function POST(request) {
     const body = await request.json();
     const {
       name, phone, aadhaarNumber, password, role, sellerType,
-      village, district, state, address, bankAccount, ifscCode,
+      village, district, division, state, address, bankAccount, ifscCode,
       landArea, landUnit, khasraNumber, pmKisanId, kccNumber,
       organizationName, registrationNo, memberCount, email
     } = body;
@@ -21,10 +22,12 @@ export async function POST(request) {
     }
     
 
-    const commonValues = [name, phone, aadhaarNumber, password, village, district, state, address, bankAccount, ifscCode];
+    const commonValues = [name, phone, aadhaarNumber, password, village, district, division, state, address, bankAccount, ifscCode];
     if (!commonValues.every(requiredText)) {
       return NextResponse.json({ message: "Please complete all required personal, address, and bank details." }, { status: 400 });
     }
+    const location = resolveMpLocation({ state, division, district, village });
+    if (!location) return NextResponse.json({ message: "Choose a valid Madhya Pradesh sambhag, district, and village." }, { status: 400 });
     if (!/^\d{10}$/.test(phone)) {
       return NextResponse.json({ message: "Phone number must contain exactly 10 digits." }, { status: 400 });
     }
@@ -57,7 +60,7 @@ export async function POST(request) {
         // Do not mark identity checks as verified until real verification APIs complete them.
         seller: {
           create: {
-            sellerType, village: village.trim(), district: district.trim(), state: state.trim(),
+            sellerType, ...location,
             address: address.trim(), bankAccount: bankAccount.trim(), ifscCode: ifscCode.trim().toUpperCase(),
             farmer: sellerType === "FARMER" ? {
               create: { landArea: Number(landArea), landUnit, khasraNumber: khasraNumber || null, pmKisanId: pmKisanId || null, kccNumber: kccNumber || null },

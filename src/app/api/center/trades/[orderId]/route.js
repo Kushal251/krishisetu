@@ -8,7 +8,7 @@ import { getCenterTradeActor } from "../../../../../../lib/centerTrade";
 const activeStatuses = ["ORDERED", "PHYSICAL_CHECK_PENDING", "PHYSICAL_CHECKED", "CONFIRMED"];
 
 async function notifyCenter(tx, centerId, title, message) {
-  const operators = await tx.user.findMany({ where: { role: "CENTER", centerId }, select: { id: true } });
+  const operators = await tx.user.findMany({ where: { role: { in: ["CENTER", "ADMIN"] }, centerId }, select: { id: true } });
   if (operators.length) await tx.notification.createMany({ data: operators.map(({ id }) => ({ userId: id, title, message })) });
 }
 

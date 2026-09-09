@@ -1,0 +1,42 @@
+{
+  "version": "soybean-mp-20260902115542",
+  "trainedAt": "2026-09-02T11:55:42.955746+00:00",
+  "crop": "SOYBEAN",
+  "units": {
+    "demand": "quintal",
+    "price": "INR/quintal"
+  },
+  "features": [
+    "crop_name",
+    "district",
+    "month",
+    "Season",
+    "Weather",
+    "quality_grade",
+    "current_supply_quintal",
+    "incoming_supply_quintal",
+    "recent_demand_quintal",
+    "previous_price_per_quintal",
+    "stock_quintal",
+    "rainfall_mm",
+    "temperature_c"
+  ],
+  "metrics": {
+    "demand": {
+      "mae": 73.0171,
+      "rmse": 110.7261,
+      "r2": 0.0414
+    },
+    "price": {
+      "mae": 47.978,
+      "rmse": 140.3004,
+      "r2": 0.7797
+    }
+  },
+  "trainingRows": 444,
+  "realWeightedRows": 160.7,
+  "dataOrigins": {
+    "SYNTHETIC_MVP": 442,
+    "BLENDED_KRISHISETU": 2
+  }
+}

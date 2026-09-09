@@ -10,7 +10,7 @@ export async function GET() {
     if (admin?.role !== "ADMIN") return NextResponse.json({ message: "Admin access required." }, { status: 403 });
     const orders = await prisma.buyerOrder.findMany({
       include: {
-        buyer: { select: { buyerType: true, businessName: true, gstin: true, address: true, city: true, state: true, pinCode: true, user: { select: { name: true, phone: true, email: true } } } },
+        buyer: { select: { buyerType: true, businessName: true, gstin: true, address: true, state: true, division: true, district: true, village: true, pinCode: true, user: { select: { name: true, phone: true, email: true } } } },
         listing: { include: { center: { select: { id: true, name: true, address: true, district: true, state: true, phone: true } } } },
       },
       orderBy: { createdAt: "desc" },
@@ -18,8 +18,8 @@ export async function GET() {
     const normalizedOrders = orders.map((order) => {
       try {
         const offer = JSON.parse(order.inspectionNote || "{}");
-        return { ...order, buyerProposedPrice: offer.buyerProposedPrice ?? null, buyerNegotiationNote: offer.buyerNegotiationNote ?? null };
-      } catch { return order; }
+        return { ...order, buyer: { ...order.buyer, city: order.buyer.village }, buyerProposedPrice: offer.buyerProposedPrice ?? null, buyerNegotiationNote: offer.buyerNegotiationNote ?? null };
+      } catch { return { ...order, buyer: { ...order.buyer, city: order.buyer.village } }; }
     });
     return NextResponse.json({ orders: normalizedOrders });
   } catch (error) {

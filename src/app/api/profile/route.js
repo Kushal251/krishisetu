@@ -26,7 +26,7 @@ export async function GET(req) {
                 phoneVerified: true, emailVerified: true, aadhaarVerified: true, createdAt: true,
                 seller: {
                     select: {
-                        sellerType: true, village: true, district: true, state: true, address: true,
+                        sellerType: true, state: true, division: true, district: true, village: true, pinCode: true, address: true,
                         bankAccount: true, ifscCode: true, verificationStatus: true,
                         verificationRequests: {
                             orderBy: { createdAt: "desc" },
@@ -39,7 +39,7 @@ export async function GET(req) {
                 },
                 buyer: {
                     select: {
-                        buyerType: true, businessName: true, gstin: true, panNumber: true, address: true, city: true, state: true, pinCode: true, verificationStatus: true,
+                        buyerType: true, businessName: true, gstin: true, panNumber: true, address: true, state: true, division: true, district: true, village: true, pinCode: true, verificationStatus: true,
                         verificationRequests: {
                             orderBy: { createdAt: "desc" },
                             take: 1,
@@ -55,7 +55,7 @@ export async function GET(req) {
             },
         });
         if (!user) return NextResponse.json({ message: "User not found." }, { status: 404 });
-        return NextResponse.json({ user });
+        return NextResponse.json({ user: user?.buyer ? { ...user, buyer: { ...user.buyer, city: user.buyer.village } } : user });
     } catch (error) {
         console.error("Profile request failed", error);
         return NextResponse.json({ message: "Could not load profile." }, { status: 500 });

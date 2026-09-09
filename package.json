@@ -7,6 +7,12 @@
     "prebuild": "prisma generate",
     "build": "next build",
     "start": "next start",
+    "ml:start": "powershell -ExecutionPolicy Bypass -File ml-service/start.ps1",
+    "ml:data:generate": "node scripts/mvp-ml-data.mjs generate",
+    "ml:data:seed-history": "node scripts/mvp-ml-data.mjs seed-history",
+    "ml:data:tick": "node scripts/mvp-ml-data.mjs tick --hours 1",
+    "ml:train:once": "powershell -ExecutionPolicy Bypass -File ml-service/auto-train.ps1 --once",
+    "ml:train:hourly": "powershell -ExecutionPolicy Bypass -File ml-service/auto-train.ps1 --watch",
     "lint": "eslint",
     "postinstall": "prisma skills sync || exit 0"
   },

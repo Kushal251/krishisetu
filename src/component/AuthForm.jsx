@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { MPLocationFields } from "./MPLocationFields";
+import { MP_STATE } from "../../lib/mpLocations";
 
 const Field = ({
   label,
@@ -169,6 +171,7 @@ const inputClass = "mt-1 w-full rounded-xl border border-gray-300 px-4 py-3 focu
 
 export function RegisterForm() {
   const [sellerType, setSellerType] = useState("FARMER");
+  const [location, setLocation] = useState({ state: MP_STATE, division: "", district: "", village: "", pinCode: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState(false);
@@ -213,10 +216,7 @@ export function RegisterForm() {
         <Field label="Aadhaar number">
           <input name="aadhaarNumber" required inputMode="numeric" pattern="[0-9]{12}" maxLength="12" className={inputClass} /></Field><Field label="Password (minimum 8 characters)">
             <input name="password" required type="password" minLength="8" className={inputClass} /></Field></section>
-      <section className="grid gap-4 sm:grid-cols-2"><Field label="Village"><input name="village" required className={inputClass} /></Field>
-        <Field label="District">
-          <input name="district" required className={inputClass} /></Field><Field label="State">
-          <input name="state" required className={inputClass} /></Field><Field label="Full address">
+      <section className="grid gap-4 sm:grid-cols-2"><MPLocationFields value={location} onChange={setLocation} /><Field label="Full address">
           <input name="address" required className={inputClass} /></Field><Field label="Bank account number">
           <input name="bankAccount" required className={inputClass} /></Field><Field label="IFSC code"><input name="ifscCode" required className={inputClass} /></Field></section>
       {sellerType === "FARMER" && <section className="grid gap-4 rounded-xl bg-green-50 p-4 sm:grid-cols-2"><Field label="Land area"><input name="landArea" required type="number" min="0.01" step="0.01" className={inputClass} /></Field><Field label="Land unit"><select name="landUnit" required defaultValue="Acre" className={inputClass}><option>Acre</option><option>Hectare</option></select></Field><Field label="Khasra number (optional)"><input name="khasraNumber" className={inputClass} /></Field><Field label="PM-Kisan ID (optional)"><input name="pmKisanId" className={inputClass} /></Field><Field label="KCC number (optional)"><input name="kccNumber" className={inputClass} /></Field></section>}

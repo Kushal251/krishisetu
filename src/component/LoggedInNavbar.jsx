@@ -48,9 +48,11 @@ export function LoggedInNavbar({ user: initialUser = null }) {
   if (!user) return null;
   const isSeller = user.role === "SELLER";
   const isFarmer = user.seller?.sellerType === "FARMER" && user.seller?.verificationStatus === "VERIFIED";
-  const navLinks = user.role === "CENTER"
-    ? [{ href: "/dashboard", label: "Dashboard" }, { href: "/center/dashboard", label: "Center dashboard" }, { href: "/center/market", label: "Buy from centers" }]
-    : [{ href: "/dashboard", label: "Dashboard" }, user.role === "BUYER" ? { href: "/buyer/market", label: "Buy soybean" } : { href: "/centers", label: "Browse centers" }];
+  const navLinks = user.role === "ADMIN"
+    ? [{ href: "/dashboard", label: "Dashboard" }, { href: "/centers", label: "Seller centers" }, { href: "/buyer/market", label: "Buyer market" }, { href: "/market-forecast", label: "ML forecast" }]
+    : user.role === "CENTER"
+    ? [{ href: "/dashboard", label: "Dashboard" }, { href: "/center/dashboard", label: "Center dashboard" }, { href: "/center/market", label: "Buy from centers" }, { href: "/market-forecast", label: "ML forecast" }]
+    : [{ href: "/dashboard", label: "Dashboard" }, user.role === "BUYER" ? { href: "/buyer/market", label: "Buy soybean" } : { href: "/centers", label: "Browse centers" }, { href: "/market-forecast", label: "Browse market" }];
   const adminLinks = [
     { href: "/admin/centers", label: "Manage centers" },
     { href: "/admin/bookings", label: "Seller bookings" },
@@ -59,6 +61,13 @@ export function LoggedInNavbar({ user: initialUser = null }) {
     { href: "/admin/buyer-verifications", label: "Buyer verification requests" },
     { href: "/admin/seasons", label: "Seasons" },
     { href: "/admin/season-registrations", label: "Crop declarations" },
+    { href: "/bookings", label: "All seller booking view" },
+    { href: "/seller/payment-history", label: "All seller settlements" },
+    { href: "/buyer/orders", label: "All buyer order view" },
+    { href: "/buyer/payment-history", label: "All buyer payments" },
+    { href: "/center/dashboard", label: "Assigned center dashboard" },
+    { href: "/center/market", label: "Assigned center market" },
+    { href: "/center/trades", label: "Assigned center trades" },
   ];
   const profileLinks = [
     { href: "/profile", label: "My profile", icon: UserRound },
@@ -67,7 +76,7 @@ export function LoggedInNavbar({ user: initialUser = null }) {
     ...(isSeller ? [{ href: "/seller/payment-history", label: "Settlement history", icon: BookOpenCheck }] : []),
     ...(user.role === "BUYER" ? [{ href: "/buyer/orders", label: "My orders", icon: BookOpenCheck }] : []),
     ...(user.role === "BUYER" ? [{ href: "/buyer/payment-history", label: "Payment history", icon: BookOpenCheck }] : []),
-    ...(user.role === "CENTER" ? [{ href: "/center/trades", label: "Trade history", icon: BookOpenCheck }] : []),
+    ...(["CENTER", "ADMIN"].includes(user.role) ? [{ href: "/center/trades", label: "Trade history", icon: BookOpenCheck }] : []),
   ];
   const active = (href) => pathname === href;
 

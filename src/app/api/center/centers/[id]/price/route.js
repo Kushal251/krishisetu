@@ -15,10 +15,16 @@ export async function POST(request, { params }) {
     if (!Number.isFinite(numericPrice) || numericPrice <= 0)
       return NextResponse.json({ message: "Enter a valid soybean price." }, { status: 400 });
 
-    const cropPrice = await prisma.cropPrice.upsert({
-      where: { centerId_crop: { centerId, crop: "SOYBEAN" } },
-      update: { price: numericPrice, unit: "quintal" },
-      create: { centerId, crop: "SOYBEAN", price: numericPrice, unit: "quintal" },
+    const cropPrice = await prisma.$transaction(async (tx) => {
+      const updated = await tx.cropPrice.upsert({
+        where: { centerId_crop: { centerId, crop: "SOYBEAN" } },
+        update: { price: numericPrice, unit: "quintal" },
+        create: { centerId, crop: "SOYBEAN", price: numericPrice, unit: "quintal" },
+      });
+      await tx.cropPriceHistory.create({
+        data: { centerId, crop: "SOYBEAN", price: numericPrice, unit: "quintal", source: "ADMIN_UPDATE" },
+      });
+      return updated;
     });
     return NextResponse.json({ cropPrice });
   } catch (error) {

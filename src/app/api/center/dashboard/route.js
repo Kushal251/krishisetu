@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "../../../../../lib/prisma";
 import { verifyToken } from "../../../../../lib/jwt";
+import { getSeasonalCenterSignals } from "../../../../../lib/seasonIntelligence";
 
 // GET /api/center/dashboard — KPIs for the center operator
 export async function GET() {
@@ -14,12 +15,11 @@ export async function GET() {
       select: { role: true, centerId: true },
     });
 
-    if (user?.role !== "CENTER")
+    if (!["CENTER", "ADMIN"].includes(user?.role))
       return NextResponse.json({ message: "Center operator access required." }, { status: 403 });
-    if (!user.centerId)
-      return NextResponse.json({ message: "You are not assigned to any center yet." }, { status: 400 });
-
-    const centerId = user.centerId;
+    const fallbackCenter = user.role === "ADMIN" && !user.centerId ? await prisma.center.findFirst({ where: { status: "ACTIVE" }, orderBy: { createdAt: "asc" }, select: { id: true } }) : null;
+    const centerId = user.centerId || fallbackCenter?.id;
+    if (!centerId) return NextResponse.json({ message: "Create an active center before opening center operations." }, { status: 400 });
 
     // Today's date range
     const todayStart = new Date();
@@ -27,7 +27,7 @@ export async function GET() {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const [center, todayBookings, pendingInspection, pendingPurchases, listings] = await Promise.all([
+    const [center, todayBookings, pendingInspection, pendingPurchases, listings, seasonal] = await Promise.all([
       // Center capacity info
       prisma.center.findUnique({
         where: { id: centerId },
@@ -60,6 +60,8 @@ export async function GET() {
         orderBy: { availableUntil: "asc" },
       }),
 
+      getSeasonalCenterSignals({ crop: "SOYBEAN" }),
+
     ]);
 
     const totalCapacity = parseFloat(center.totalCapacity);
@@ -68,6 +70,8 @@ export async function GET() {
       ? Math.round((usedCapacity / totalCapacity) * 100)
       : 0;
 
+    const seasonSignal = seasonal.signals.get(centerId);
+    const recommendedTradeQty = Math.min(Math.max(0, Number(seasonSignal?.shortageQuintal || 0)), Math.max(0, totalCapacity - usedCapacity));
     return NextResponse.json({
       center: {
         name: center.name,
@@ -85,6 +89,21 @@ export async function GET() {
       },
       pendingPurchases,
       listings,
+      intelligence: seasonSignal ? {
+        ...seasonSignal,
+        expectedSeasonSupply: seasonSignal.expectedSeasonSupplyQuintal,
+        declaredIncoming: seasonSignal.weatherAdjustedDeclaredSupplyQuintal,
+        currentDemand: seasonSignal.currentDemandQuintal,
+        projectedDemand: seasonSignal.projectedDemandQuintal,
+        shortage: seasonSignal.shortageQuintal,
+        surplus: seasonSignal.surplusQuintal,
+        previousSeasonSupply: seasonSignal.previousSeasonSupplyQuintal,
+        previousSeasonDemand: seasonSignal.previousSeasonDemandQuintal,
+        recommendedTradeQty,
+        recommendedTradeQtyQuintal: recommendedTradeQty,
+        decision: recommendedTradeQty > 0 ? "BUY" : seasonSignal.surplusQuintal > 0 ? "SELL" : "HOLD",
+        message: recommendedTradeQty > 0 ? `Projected local demand may exceed supply. Source up to ${recommendedTradeQty.toFixed(2)} quintal from another center.` : seasonSignal.surplusQuintal > 0 ? `Projected supply is ${Number(seasonSignal.surplusQuintal).toFixed(2)} quintal above local demand. Avoid unnecessary purchase and consider selling surplus.` : "Projected demand and supply are balanced. Monitor new bookings and orders.",
+      } : null,
     });
   } catch (error) {
     console.error("Center dashboard failed", error);
